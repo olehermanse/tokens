@@ -13,11 +13,11 @@ impl<'a> Token<'a> {
     /// # Examples
     ///
     /// ```
-    ///  let token = tokens::Token::from("ab\n");
+    /// let token = tokens::Token::from("ab\n");
     ///
-    ///  assert_eq!(token.string, "ab\n");
-    ///  assert_eq!(token.get_line(), "ab");
-    ///  assert_eq!(token.index, 0);
+    /// assert_eq!(token.string, "ab\n");
+    /// assert_eq!(token.get_line(), "ab");
+    /// assert_eq!(token.index, 0);
     /// ```
     pub fn from(string: &str) -> Token {
         return Token {
@@ -36,16 +36,16 @@ impl<'a> Token<'a> {
     /// # Examples
     ///
     /// ```
-    ///  let token = tokens::Token::from("abc\ndef\nghi");
+    /// let token = tokens::Token::from("abc\ndef\nghi");
     ///
-    ///  assert_eq!(token.get_line(), "abc");
+    /// assert_eq!(token.get_line(), "abc");
     ///
-    ///  let (a, b) = token.split_at(4);
+    /// let (a, b) = token.split_at(4);
     ///
-    ///  assert_eq!(a.get_line(), "abc");
+    /// assert_eq!(a.get_line(), "abc");
     ///
-    ///  assert_eq!(b.string, "def\nghi");
-    ///  assert_eq!(b.get_line(), "def");
+    /// assert_eq!(b.string, "def\nghi");
+    /// assert_eq!(b.get_line(), "def");
     /// ```
     pub fn get_line(self: &Token<'a>) -> &'a str {
         let string = self.buffer.get(self.line_start..).unwrap();
@@ -60,12 +60,12 @@ impl<'a> Token<'a> {
     /// # Examples
     ///
     /// ```
-    ///  let token = tokens::Token::from("ab");
-    ///  let (a,b) = token.split_at(1);
+    /// let token = tokens::Token::from("ab");
+    /// let (a,b) = token.split_at(1);
     ///
-    ///  assert_eq!(a.string, "a");
-    ///  assert_eq!(b.string, "b");
-    ///  assert_eq!(b.index, 1);
+    /// assert_eq!(a.string, "a");
+    /// assert_eq!(b.string, "b");
+    /// assert_eq!(b.index, 1);
     /// ```
     pub fn split_at(self: Token<'a>, offset: usize) -> (Token<'a>, Token<'a>) {
         assert!(offset > 0);
