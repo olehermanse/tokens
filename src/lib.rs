@@ -115,7 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn token_from_line() {
+    fn token_from_lines() {
         let lines = "abc\ndef\nghi";
         let token = Token::from(lines);
         assert_eq!(token.string, lines);
@@ -130,6 +130,36 @@ mod tests {
         let (a, b) = rest.split_at(1);
         assert_eq!("a", a.string);
         assert_eq!("b", b.string);
+    }
+
+    #[test]
+    fn split_abc_1() {
+        let original = Token::from("abc");
+        let offset = 1;
+        let (a, bc) = original.split_at(offset);
+        assert_eq!("a", a.string);
+        assert_eq!("bc", bc.string);
+        assert_eq!(a.get_line(), "abc");
+        assert_eq!(bc.get_line(), "abc");
+        assert_eq!(a.row, bc.row);
+        assert_eq!(a.col + offset, bc.col);
+        assert_eq!(a.index, 0);
+        assert_eq!(bc.index, offset);
+    }
+
+    #[test]
+    fn split_abc_2() {
+        let original = Token::from("abc");
+        let offset = 2;
+        let (ab, c) = original.split_at(offset);
+        assert_eq!("ab", ab.string);
+        assert_eq!("c", c.string);
+        assert_eq!(ab.get_line(), "abc");
+        assert_eq!(c.get_line(), "abc");
+        assert_eq!(ab.row, c.row);
+        assert_eq!(ab.col + offset, c.col);
+        assert_eq!(ab.index, 0);
+        assert_eq!(c.index, offset);
     }
 
     #[test]
@@ -214,35 +244,5 @@ mod tests {
         assert_eq!(final_newline.buffer, buffer);
         assert_eq!(final_newline.index, final_newline.buffer.len() - 1);
         assert_eq!(final_newline.get_line(), "    return");
-    }
-
-    #[test]
-    fn split_abc_1() {
-        let original = Token::from("abc");
-        let offset = 1;
-        let (a, bc) = original.split_at(offset);
-        assert_eq!("a", a.string);
-        assert_eq!("bc", bc.string);
-        assert_eq!(a.get_line(), "abc");
-        assert_eq!(bc.get_line(), "abc");
-        assert_eq!(a.row, bc.row);
-        assert_eq!(a.col + offset, bc.col);
-        assert_eq!(a.index, 0);
-        assert_eq!(bc.index, offset);
-    }
-
-    #[test]
-    fn split_abc_2() {
-        let original = Token::from("abc");
-        let offset = 2;
-        let (ab, c) = original.split_at(offset);
-        assert_eq!("ab", ab.string);
-        assert_eq!("c", c.string);
-        assert_eq!(ab.get_line(), "abc");
-        assert_eq!(c.get_line(), "abc");
-        assert_eq!(ab.row, c.row);
-        assert_eq!(ab.col + offset, c.col);
-        assert_eq!(ab.index, 0);
-        assert_eq!(c.index, offset);
     }
 }
