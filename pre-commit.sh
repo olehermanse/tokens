@@ -16,4 +16,4 @@ cargo doc   || fail="cargo doc"
 cargo test  || fail="cargo test"
 
 echo "Commit hook errors: "$fail
-test $fail = 0
+test "$fail" = 0
