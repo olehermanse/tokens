@@ -8,7 +8,6 @@ pub struct Token<'a> {
 }
 
 impl<'a> Token<'a> {
-
     /// Converts a `&str` into a `Token`
     ///
     /// # Examples
@@ -21,7 +20,14 @@ impl<'a> Token<'a> {
     ///  assert_eq!(token.index, 0);
     /// ```
     pub fn from(string: &str) -> Token {
-        return Token {string: string, buffer: string, line_start: 0, index: 0, row: 0, col: 0};
+        return Token {
+            string: string,
+            buffer: string,
+            line_start: 0,
+            index: 0,
+            row: 0,
+            col: 0,
+        };
     }
 
     /// Gets a string slice of the line where the `Token` starts.
@@ -44,8 +50,8 @@ impl<'a> Token<'a> {
     pub fn get_line(self: &Token<'a>) -> &'a str {
         let string = self.buffer.get(self.line_start..).unwrap();
         return match string.find("\n") {
-            Some(n) => {string.get(0..n).unwrap()}
-            None => {string}
+            Some(n) => string.get(0..n).unwrap(),
+            None => string,
         };
     }
 
@@ -75,8 +81,8 @@ impl<'a> Token<'a> {
             col: self.col,
         };
         let line_start = match a.string.rfind("\n") {
-            Some(n) => {a.index + n + 1}
-            None => {a.line_start}
+            Some(n) => a.index + n + 1,
+            None => a.line_start,
         };
         let b = Token {
             string: b,
@@ -88,7 +94,6 @@ impl<'a> Token<'a> {
         };
         return (a, b);
     }
-
 }
 
 #[cfg(test)]
@@ -120,7 +125,7 @@ mod tests {
     #[test]
     fn split_simple() {
         let rest = Token::from("ab");
-        let (a,b) = rest.split_at(1);
+        let (a, b) = rest.split_at(1);
         assert_eq!("a", a.string);
         assert_eq!("b", b.string);
     }
@@ -129,7 +134,7 @@ mod tests {
     fn split_abc_1() {
         let original = Token::from("abc");
         let offset = 1;
-        let (a,bc) = original.split_at(offset);
+        let (a, bc) = original.split_at(offset);
         assert_eq!("a", a.string);
         assert_eq!("bc", bc.string);
         assert_eq!(a.get_line(), "abc");
@@ -144,7 +149,7 @@ mod tests {
     fn split_abc_2() {
         let original = Token::from("abc");
         let offset = 2;
-        let (ab,c) = original.split_at(offset);
+        let (ab, c) = original.split_at(offset);
         assert_eq!("ab", ab.string);
         assert_eq!("c", c.string);
         assert_eq!(ab.get_line(), "abc");
