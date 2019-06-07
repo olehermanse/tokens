@@ -41,6 +41,7 @@ impl<'a> Token<'a> {
     /// assert_eq!(token.get_line(), "abc");
     ///
     /// let (a, b) = token.split_at(4);
+    /// let b = b.unwrap();
     ///
     /// assert_eq!(a.get_line(), "abc");
     ///
@@ -62,15 +63,16 @@ impl<'a> Token<'a> {
     /// ```
     /// let token = tokens::Token::from("ab");
     /// let (a,b) = token.split_at(1);
+    /// let b = b.expect("This isn't None in the example");
     ///
     /// assert_eq!(a.string, "a");
     /// assert_eq!(b.string, "b");
     /// assert_eq!(b.index, 1);
     /// ```
-    pub fn split_at(self: Token<'a>, offset: usize) -> (Token<'a>, Token<'a>) {
+    pub fn split_at(self: Token<'a>, offset: usize) -> (Token<'a>, Option<Token<'a>>) {
         assert!(offset > 0);
-        assert!(self.string.len() >= 2);
-        assert!(offset < self.string.len());
+        assert!(self.string.len() >= 1);
+        assert!(offset <= self.string.len());
         let (a, b) = self.string.split_at(offset);
         let a = Token {
             string: a,
@@ -80,12 +82,19 @@ impl<'a> Token<'a> {
             row: self.row,
             col: self.col,
         };
-        let (line_start, col) = match a.string.rfind("\n") {
+
+        if b.len() == 0 {
+            return (a, None);
+        }
+
+        let newlines = a.string.match_indices("\n").count();
+        let row = self.row + newlines;
+        let last_newline = a.string.rfind("\n");
+        let (line_start, col) = match last_newline {
             Some(n) => (a.index + n + 1, a.string.len() - n - 1),
             None => (a.line_start, self.col + offset),
         };
-        let newlines = a.string.match_indices("\n").count();
-        let row = self.row + newlines;
+
         let b = Token {
             string: b,
             buffer: self.buffer,
@@ -94,7 +103,8 @@ impl<'a> Token<'a> {
             row: row,
             col: col,
         };
-        return (a, b);
+
+        return (a, Some(b));
     }
 }
 
@@ -129,7 +139,41 @@ mod tests {
         let rest = Token::from("ab");
         let (a, b) = rest.split_at(1);
         assert_eq!("a", a.string);
-        assert_eq!("b", b.string);
+        assert_eq!("b", b.unwrap().string);
+    }
+
+    #[test]
+    fn split_end() {
+        let rest = Token::from(";");
+        let (a, b) = rest.split_at(1);
+        assert_eq!(";", a.string);
+        match b {
+            Some(_) => {
+                panic!();
+            }
+            None => {}
+        };
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_split_empty() {
+        let rest = Token::from("");
+        let (_a, _b) = rest.split_at(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_split_outside() {
+        let rest = Token::from("a");
+        let (_a, _b) = rest.split_at(2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_split_at_zero() {
+        let rest = Token::from("a");
+        let (_a, _b) = rest.split_at(0);
     }
 
     #[test]
@@ -137,6 +181,7 @@ mod tests {
         let original = Token::from("abc");
         let offset = 1;
         let (a, bc) = original.split_at(offset);
+        let bc = bc.unwrap();
         assert_eq!("a", a.string);
         assert_eq!("bc", bc.string);
         assert_eq!(a.get_line(), "abc");
@@ -152,6 +197,7 @@ mod tests {
         let original = Token::from("abc");
         let offset = 2;
         let (ab, c) = original.split_at(offset);
+        let c = c.unwrap();
         assert_eq!("ab", ab.string);
         assert_eq!("c", c.string);
         assert_eq!(ab.get_line(), "abc");
@@ -169,71 +215,85 @@ mod tests {
         let original = Token::from(buffer);
 
         let (def, rest) = original.split_at("def".len());
+        let rest = rest.unwrap();
         assert_eq!(def.string, "def");
         assert_eq!(def.row, 0);
         assert_eq!(def.col, 0);
 
         let (space, rest) = rest.split_at(" ".len());
+        let rest = rest.unwrap();
         assert_eq!(space.string, " ");
         assert_eq!(space.row, 0);
         assert_eq!(space.col, "def".len());
 
         let (main, rest) = rest.split_at("main".len());
+        let rest = rest.unwrap();
         assert_eq!(main.string, "main");
         assert_eq!(main.row, 0);
         assert_eq!(main.col, "def ".len());
 
         let (open, rest) = rest.split_at("(".len());
+        let rest = rest.unwrap();
         assert_eq!(open.string, "(");
         assert_eq!(open.row, 0);
         assert_eq!(open.col, "def main".len());
 
         let (close, rest) = rest.split_at(")".len());
+        let rest = rest.unwrap();
         assert_eq!(close.string, ")");
         assert_eq!(close.row, 0);
         assert_eq!(close.col, "def main(".len());
 
         let (colon, rest) = rest.split_at(":".len());
+        let rest = rest.unwrap();
         assert_eq!(colon.string, ":");
         assert_eq!(colon.row, 0);
         assert_eq!(colon.col, "def main()".len());
 
         let (newline, rest) = rest.split_at("\n".len());
+        let rest = rest.unwrap();
         assert_eq!(newline.string, "\n");
         assert_eq!(newline.row, 0);
         assert_eq!(newline.col, "def main():".len());
 
         let (indentation, rest) = rest.split_at(4);
+        let rest = rest.unwrap();
         assert_eq!(indentation.string, "    ");
         assert_eq!(indentation.row, 1);
         assert_eq!(indentation.col, 0);
 
         let (a, rest) = rest.split_at("a".len());
+        let rest = rest.unwrap();
         assert_eq!(a.string, "a");
         assert_eq!(a.row, 1);
         assert_eq!(a.col, 4);
 
         let (equals, rest) = rest.split_at("=".len());
+        let rest = rest.unwrap();
         assert_eq!(equals.string, "=");
         assert_eq!(equals.row, 1);
         assert_eq!(equals.col, "    a".len());
 
         let (zero, rest) = rest.split_at("0".len());
+        let rest = rest.unwrap();
         assert_eq!(zero.string, "0");
         assert_eq!(zero.row, 1);
         assert_eq!(zero.col, "    a=".len());
 
         let (newline, rest) = rest.split_at("\n".len());
+        let rest = rest.unwrap();
         assert_eq!(newline.string, "\n");
         assert_eq!(newline.row, 1);
         assert_eq!(newline.col, "    a=0".len());
 
         let (indentation, rest) = rest.split_at(4);
+        let rest = rest.unwrap();
         assert_eq!(indentation.string, "    ");
         assert_eq!(indentation.row, 2);
         assert_eq!(indentation.col, 0);
 
         let (ret, final_newline) = rest.split_at("return".len());
+        let final_newline = final_newline.unwrap();
         assert_eq!(ret.string, "return");
         assert_eq!(ret.row, 2);
         assert_eq!(ret.col, 4);
