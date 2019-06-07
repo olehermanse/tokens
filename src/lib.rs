@@ -8,6 +8,15 @@ pub struct Token<'a> {
 }
 
 impl<'a> Token<'a> {
+    fn assertions(self: &Token<'a>) {
+        assert!(self.string.len() > 0);
+        assert!(self.buffer.len() > 0);
+        assert!(self.buffer.len() >= self.string.len());
+        assert!(self.index < self.buffer.len());
+        assert!(self.index == 0 || (self.row > 0 || self.col > 0));
+        assert!(self.line_start + self.col == self.index);
+    }
+
     /// Converts a `&str` into a `Token`
     ///
     /// # Examples
@@ -20,7 +29,7 @@ impl<'a> Token<'a> {
     /// assert_eq!(token.index, 0);
     /// ```
     pub fn from(string: &str) -> Token {
-        return Token {
+        let token = Token {
             string: string,
             buffer: string,
             line_start: 0,
@@ -28,6 +37,8 @@ impl<'a> Token<'a> {
             row: 0,
             col: 0,
         };
+        token.assertions();
+        return token;
     }
 
     /// Gets a string slice of the line where the `Token` starts.
@@ -49,6 +60,7 @@ impl<'a> Token<'a> {
     /// assert_eq!(b.get_line(), "def");
     /// ```
     pub fn get_line(self: &Token<'a>) -> &'a str {
+        self.assertions();
         let string = self.buffer.get(self.line_start..).unwrap();
         return match string.find("\n") {
             Some(n) => string.get(0..n).unwrap(),
@@ -70,6 +82,7 @@ impl<'a> Token<'a> {
     /// assert_eq!(b.index, 1);
     /// ```
     pub fn split_at(self: Token<'a>, offset: usize) -> (Token<'a>, Option<Token<'a>>) {
+        self.assertions();
         assert!(offset > 0);
         assert!(self.string.len() >= 1);
         assert!(offset <= self.string.len());
@@ -82,6 +95,7 @@ impl<'a> Token<'a> {
             row: self.row,
             col: self.col,
         };
+        a.assertions();
 
         if b.len() == 0 {
             return (a, None);
@@ -103,6 +117,7 @@ impl<'a> Token<'a> {
             row: row,
             col: col,
         };
+        b.assertions();
 
         return (a, Some(b));
     }
