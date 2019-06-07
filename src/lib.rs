@@ -1,6 +1,7 @@
 pub struct Token<'a> {
     pub string: &'a str,
-    pub line: &'a str,
+    pub buffer: &'a str,
+    pub line_start: usize,
     pub index: usize,
     pub row: usize,
     pub col: usize,
@@ -16,16 +17,36 @@ impl<'a> Token<'a> {
     ///  let token = tokens::Token::from("ab\n");
     ///
     ///  assert_eq!(token.string, "ab\n");
-    ///  assert_eq!(token.line, "ab");
+    ///  assert_eq!(token.get_line(), "ab");
     ///  assert_eq!(token.index, 0);
     /// ```
     pub fn from(string: &str) -> Token {
-        let newline = string.find("\n");
-        let line = match newline {
+        return Token {string: string, buffer: string, line_start: 0, index: 0, row: 0, col: 0};
+    }
+
+    /// Gets a string slice of the line where the `Token` starts.
+    /// The newline character is not included.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///  let token = tokens::Token::from("abc\ndef\nghi");
+    ///
+    ///  assert_eq!(token.get_line(), "abc");
+    ///
+    ///  let (a, b) = token.split_at(4);
+    ///
+    ///  assert_eq!(a.get_line(), "abc");
+    ///
+    ///  assert_eq!(b.string, "def\nghi");
+    ///  assert_eq!(b.get_line(), "def");
+    /// ```
+    pub fn get_line(self: &Token<'a>) -> &'a str {
+        let string = self.buffer.get(self.line_start..).unwrap();
+        return match string.find("\n") {
             Some(n) => {string.get(0..n).unwrap()}
             None => {string}
         };
-        return Token {string: string, line: line, index: 0, row: 1, col: 1};
     }
 
     /// Splits a `Token` into 2
@@ -40,24 +61,34 @@ impl<'a> Token<'a> {
     ///  assert_eq!(b.string, "b");
     ///  assert_eq!(b.index, 1);
     /// ```
-    pub fn split_at(self: Token<'a>, index: usize) -> (Token<'a>, Token<'a>) {
-        let (a, b) = self.string.split_at(index);
+    pub fn split_at(self: Token<'a>, offset: usize) -> (Token<'a>, Token<'a>) {
+        assert!(offset > 0);
+        assert!(self.string.len() >= 2);
+        assert!(offset < self.string.len());
+        let (a, b) = self.string.split_at(offset);
         let a = Token {
             string: a,
+            buffer: self.buffer,
             index: self.index,
-            line: self.line,
+            line_start: self.line_start,
             row: self.row,
             col: self.col,
         };
+        let line_start = match a.string.rfind("\n") {
+            Some(n) => {a.index + n + 1}
+            None => {a.line_start}
+        };
         let b = Token {
             string: b,
-            index: self.index + index,
-            line: self.line,
+            buffer: self.buffer,
+            index: self.index + offset,
+            line_start: line_start,
             row: self.row,
-            col: self.col + index,
+            col: self.col + offset,
         };
         return (a, b);
     }
+
 }
 
 #[cfg(test)]
@@ -69,9 +100,10 @@ mod tests {
         let alphabet = "abcdefghijklmnopqrstuvwxyz";
         let token = Token::from(alphabet);
         assert_eq!(token.string, alphabet);
-        assert_eq!(token.line, alphabet);
-        assert_eq!(token.row, 1);
-        assert_eq!(token.col, 1);
+        assert_eq!(token.buffer, alphabet);
+        assert_eq!(token.get_line(), alphabet);
+        assert_eq!(token.row, 0);
+        assert_eq!(token.col, 0);
         assert_eq!(token.index, 0);
     }
 
@@ -80,45 +112,46 @@ mod tests {
         let lines = "abc\ndef\nghi";
         let token = Token::from(lines);
         assert_eq!(token.string, lines);
-        assert_eq!(token.line, "abc");
-        assert_eq!(token.row, 1);
-        assert_eq!(token.col, 1);
+        assert_eq!(token.row, 0);
+        assert_eq!(token.col, 0);
         assert_eq!(token.index, 0);
     }
 
     #[test]
-    fn split_ab() {
+    fn split_simple() {
         let rest = Token::from("ab");
         let (a,b) = rest.split_at(1);
         assert_eq!("a", a.string);
         assert_eq!("b", b.string);
-        assert_eq!(a.row, b.row);
-        assert_eq!(a.col + 1, b.col);
-        assert_eq!(a.index, 0);
-        assert_eq!(b.index, 1);
     }
 
     #[test]
     fn split_abc_1() {
         let original = Token::from("abc");
-        let (a,bc) = original.split_at(1);
+        let offset = 1;
+        let (a,bc) = original.split_at(offset);
         assert_eq!("a", a.string);
         assert_eq!("bc", bc.string);
+        assert_eq!(a.get_line(), "abc");
+        assert_eq!(bc.get_line(), "abc");
         assert_eq!(a.row, bc.row);
-        assert_eq!(a.col + 1, bc.col);
+        assert_eq!(a.col + offset, bc.col);
         assert_eq!(a.index, 0);
-        assert_eq!(bc.index, 1);
+        assert_eq!(bc.index, offset);
     }
 
     #[test]
     fn split_abc_2() {
         let original = Token::from("abc");
-        let (ab,c) = original.split_at(2);
+        let offset = 2;
+        let (ab,c) = original.split_at(offset);
         assert_eq!("ab", ab.string);
         assert_eq!("c", c.string);
+        assert_eq!(ab.get_line(), "abc");
+        assert_eq!(c.get_line(), "abc");
         assert_eq!(ab.row, c.row);
-        assert_eq!(ab.col + 2, c.col);
+        assert_eq!(ab.col + offset, c.col);
         assert_eq!(ab.index, 0);
-        assert_eq!(c.index, 2);
+        assert_eq!(c.index, offset);
     }
 }
