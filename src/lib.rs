@@ -7,6 +7,71 @@ pub struct Token<'a> {
     pub col: usize,
 }
 
+pub enum TokenType {
+    Sequence(&'static str),
+    Alphanumeric,
+    Whitespace(char),
+    Comment(&'static str),
+    Quote(&'static str),
+    Symbol,
+}
+
+fn get_sequence(s: &str) -> Option<&'static str> {
+    let sequences = vec![
+        "===", "<=", ">=", "!=", "==", "->", "=>", "*=", "+=", "/=", "%=",
+    ];
+    for sequence in sequences {
+        if s.starts_with(sequence) {
+            return Some(sequence);
+        }
+    }
+    return None;
+}
+
+fn is_alphanumeric(c: char) -> bool {
+    let alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    return alphabet.contains(c);
+}
+
+fn is_symbol(c: char) -> bool {
+    let symbols = "(){}<>[]:;,.@!/\\|-+=*?&%$#";
+    return symbols.contains(c);
+}
+
+fn get_line(string: &str) -> &str {
+    return match string.find("\n") {
+        Some(n) => string.get(0..n).unwrap(),
+        None => string,
+    };
+}
+
+impl TokenType {
+    pub fn from(s: &str) -> TokenType {
+        let sequence = get_sequence(s);
+        match sequence {
+            Some(sequence) => {
+                return TokenType::Sequence(sequence);
+            }
+            None => {}
+        };
+        let c = s.chars().nth(0).unwrap();
+        if is_alphanumeric(c) {
+            return TokenType::Alphanumeric;
+        }
+        if is_symbol(c) {
+            return TokenType::Symbol;
+        }
+        return match c {
+            ' ' => TokenType::Whitespace(' '),
+            '\n' => TokenType::Whitespace('\n'),
+            '\t' => TokenType::Whitespace('\t'),
+            '\'' => TokenType::Quote("\'"),
+            '\"' => TokenType::Quote("\""),
+            _ => panic!(),
+        };
+    }
+}
+
 impl<'a> Token<'a> {
     fn assertions(self: &Token<'a>) {
         assert!(self.string.len() > 0);
@@ -62,10 +127,7 @@ impl<'a> Token<'a> {
     pub fn get_line(self: &Token<'a>) -> &'a str {
         self.assertions();
         let string = self.buffer.get(self.line_start..).unwrap();
-        return match string.find("\n") {
-            Some(n) => string.get(0..n).unwrap(),
-            None => string,
-        };
+        return get_line(string);
     }
 
     /// Splits a `Token` into 2
@@ -120,6 +182,53 @@ impl<'a> Token<'a> {
         b.assertions();
 
         return (a, Some(b));
+    }
+
+    /// Extracts the next token pair
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let token = tokens::Token::from("ab");
+    /// match token.get_type() {
+    ///     tokens::TokenType::Alphanumeric => {println!("It's Alphanumeric!");},
+    ///     tokens::TokenType::Symbol => {println!("It's Symbol!");},
+    ///     _ => {println!("It's something else!");},
+    /// };
+
+    /// ```
+    pub fn get_type(self: &Token<'a>) -> TokenType {
+        self.assertions();
+        return TokenType::from(self.string);
+    }
+
+    /// Extracts the next token pair
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let token = tokens::Token::from("ab;");
+    /// let (ab, semi) = token.next_pair();
+    /// let semi = semi.unwrap();
+    /// assert_eq!(ab.string, "ab");
+    /// assert_eq!(semi.string, ";");
+    /// ```
+    pub fn next_pair(self: Token<'a>) -> (Token<'a>, Option<Token<'a>>) {
+        self.assertions();
+
+        let offset = match self.get_type() {
+            TokenType::Sequence(s) => s.len(),
+            TokenType::Alphanumeric => self.string.find(|c: char| !is_alphanumeric(c)).unwrap(),
+            TokenType::Whitespace(w) => self.string.find(|c: char| w != c).unwrap(),
+            TokenType::Comment(_) => self.get_line().len(),
+            TokenType::Quote(q) => {
+                let s = self.string.get(q.len()..).unwrap();
+                let end = s.find(q).unwrap();
+                end + 2 * q.len()
+            }
+            TokenType::Symbol => 1,
+        };
+        return self.split_at(offset);
     }
 }
 
@@ -189,6 +298,35 @@ mod tests {
     fn panic_split_at_zero() {
         let rest = Token::from("a");
         let (_a, _b) = rest.split_at(0);
+    }
+
+    #[test]
+    fn next_simple() {
+        let buffer = "age = 40;";
+        let remaining = Token::from(buffer);
+        let (word, remaining) = remaining.next_pair();
+        assert_eq!(word.string, "age");
+        let remaining = remaining.unwrap();
+        let (space, remaining) = remaining.next_pair();
+        assert_eq!(space.string, " ");
+        let remaining = remaining.unwrap();
+        let (equals, remaining) = remaining.next_pair();
+        assert_eq!(equals.string, "=");
+        let remaining = remaining.unwrap();
+        let (space, remaining) = remaining.next_pair();
+        assert_eq!(space.string, " ");
+        let remaining = remaining.unwrap();
+        let (number, remaining) = remaining.next_pair();
+        assert_eq!(number.string, "40");
+        let remaining = remaining.unwrap();
+        let (semicolon, remaining) = remaining.next_pair();
+        assert_eq!(semicolon.string, ";");
+        match remaining {
+            Some(_) => {
+                panic!();
+            }
+            None => {}
+        };
     }
 
     #[test]
