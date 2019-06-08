@@ -18,7 +18,7 @@ pub enum TokenType {
 
 fn get_sequence(s: &str) -> Option<&'static str> {
     let sequences = vec![
-        "===", "<=", ">=", "!=", "==", "->", "=>", "*=", "+=", "/=", "%=",
+        "===", "<=", ">=", "!=", "==", "->", "=>", "*=", "+=", "/=", "%=", "::",
     ];
     for sequence in sequences {
         if s.starts_with(sequence) {
@@ -54,7 +54,10 @@ impl TokenType {
             }
             None => {}
         };
-        let c = s.chars().nth(0).unwrap();
+        let c = s
+            .chars()
+            .nth(0)
+            .expect("Cannot determine type when index 0 is not accessible");
         if is_alphanumeric(c) {
             return TokenType::Alphanumeric;
         }
@@ -218,17 +221,45 @@ impl<'a> Token<'a> {
 
         let offset = match self.get_type() {
             TokenType::Sequence(s) => s.len(),
-            TokenType::Alphanumeric => self.string.find(|c: char| !is_alphanumeric(c)).unwrap(),
-            TokenType::Whitespace(w) => self.string.find(|c: char| w != c).unwrap(),
+            TokenType::Alphanumeric => match self.string.find(|c: char| !is_alphanumeric(c)) {
+                Some(n) => n,
+                None => self.string.len(),
+            },
+            TokenType::Whitespace(w) => match self.string.find(|c: char| w != c) {
+                Some(n) => n,
+                None => self.string.len(),
+            },
             TokenType::Comment(_) => self.get_line().len(),
             TokenType::Quote(q) => {
-                let s = self.string.get(q.len()..).unwrap();
-                let end = s.find(q).unwrap();
+                assert!(q.len() == 1);
+                let s = self.string.get(q.len()..).expect("Nothing after quote!");
+                let end = s.find(q).expect("Unterminated quote!");
                 end + 2 * q.len()
             }
             TokenType::Symbol => 1,
         };
         return self.split_at(offset);
+    }
+
+    pub fn get_tokens(self: Token<'a>) -> Vec<Token<'a>> {
+        let (token, remainder) = self.next_pair();
+        return match remainder {
+            Some(remainder) => {
+                let mut a = vec![token];
+                let b = remainder.get_tokens();
+                a.extend(b);
+                a
+            }
+            None => vec![token],
+        };
+    }
+
+    pub fn get_strings(self: Token<'a>) -> Vec<&'a str> {
+        return self
+            .get_tokens()
+            .into_iter()
+            .map(|t: Token| t.string)
+            .collect();
     }
 }
 
@@ -298,6 +329,30 @@ mod tests {
     fn panic_split_at_zero() {
         let rest = Token::from("a");
         let (_a, _b) = rest.split_at(0);
+    }
+
+    #[test]
+    fn get_tokens_simple() {
+        let v = Token::from("bundle agent main\n{reports:any::'Hello, world';}\n").get_strings();
+        let v: Vec<&str> = v.into_iter().filter(|s| *s != " ").collect();
+        assert_eq!(
+            v,
+            [
+                "bundle",
+                "agent",
+                "main",
+                "\n",
+                "{",
+                "reports",
+                ":",
+                "any",
+                "::",
+                "'Hello, world'",
+                ";",
+                "}",
+                "\n"
+            ]
+        );
     }
 
     #[test]
