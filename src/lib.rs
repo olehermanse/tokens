@@ -254,11 +254,19 @@ impl<'a> Token<'a> {
         };
     }
 
-    pub fn get_strings(self: Token<'a>) -> Vec<&'a str> {
+    pub fn get_strings_including_whitespace(self: Token<'a>) -> Vec<&'a str> {
         return self
             .get_tokens()
             .into_iter()
             .map(|t: Token| t.string)
+            .collect();
+    }
+
+    pub fn get_strings(self: Token<'a>) -> Vec<&'a str> {
+        return self
+            .get_strings_including_whitespace()
+            .into_iter()
+            .filter(|s| *s != " ")
             .collect();
     }
 }
@@ -332,9 +340,8 @@ mod tests {
     }
 
     #[test]
-    fn get_tokens_simple() {
+    fn get_strings_simple() {
         let v = Token::from("bundle agent main\n{reports:any::'Hello, world';}\n").get_strings();
-        let v: Vec<&str> = v.into_iter().filter(|s| *s != " ").collect();
         assert_eq!(
             v,
             [
@@ -351,6 +358,30 @@ mod tests {
                 ";",
                 "}",
                 "\n"
+            ]
+        );
+    }
+
+    #[test]
+    fn get_strings_sequences() {
+        let buffer = "\"promise name\"->{} attribute=>{'words','more words'};";
+        let initial_token = Token::from(buffer);
+        let v = initial_token.get_strings();
+        assert_eq!(
+            v,
+            [
+                "\"promise name\"",
+                "->",
+                "{",
+                "}",
+                "attribute",
+                "=>",
+                "{",
+                "'words'",
+                ",",
+                "'more words'",
+                "}",
+                ";",
             ]
         );
     }
