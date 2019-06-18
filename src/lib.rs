@@ -1,7 +1,7 @@
 #[derive(PartialEq)]
 pub enum TokenCategory {
     Sequence,
-    Alphanumeric,
+    Identifier,
     Whitespace,
     StringLiteral,
     Symbol,
@@ -39,12 +39,12 @@ fn find_first_token(s: &str) -> (TokenCategory, usize) {
     };
     let first = s.chars().nth(0).expect("Empty token!");
     let length = s.len();
-    if is_alphanumeric(first) {
-        let len = match s.find(|c: char| !is_alphanumeric(c)) {
+    if is_identifier(first) {
+        let len = match s.find(|c: char| !is_identifier(c)) {
             Some(n) => n,
             None => length,
         };
-        return (TokenCategory::Alphanumeric, len);
+        return (TokenCategory::Identifier, len);
     }
     if is_symbol(first) {
         return (TokenCategory::Symbol, 1);
@@ -58,7 +58,7 @@ fn find_first_token(s: &str) -> (TokenCategory, usize) {
         _ => panic!(),
     };
     let length = match category {
-        TokenCategory::Alphanumeric => match s.find(|c: char| !is_alphanumeric(c)) {
+        TokenCategory::Identifier => match s.find(|c: char| !is_identifier(c)) {
             Some(n) => n,
             None => length,
         },
@@ -77,7 +77,7 @@ fn find_first_token(s: &str) -> (TokenCategory, usize) {
     return (category, length);
 }
 
-fn is_alphanumeric(c: char) -> bool {
+fn is_identifier(c: char) -> bool {
     let alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     return alphabet.contains(c);
 }
