@@ -78,7 +78,7 @@ fn find_first_token(s: &str) -> (TokenCategory, usize) {
 }
 
 fn is_identifier(c: char) -> bool {
-    let alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
     return alphabet.contains(c);
 }
 
