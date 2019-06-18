@@ -1,3 +1,12 @@
+pub enum TokenCategory {
+    Sequence,
+    Alphanumeric,
+    Whitespace,
+    StringLiteral,
+    Symbol,
+    Unknown,
+}
+
 pub struct Token<'a> {
     pub string: &'a str,
     pub buffer: &'a str,
@@ -5,15 +14,7 @@ pub struct Token<'a> {
     pub index: usize,
     pub row: usize,
     pub col: usize,
-}
-
-pub enum TokenType {
-    Sequence(&'static str),
-    Alphanumeric,
-    Whitespace(char),
-    Comment(&'static str),
-    Quote(&'static str),
-    Symbol,
+    pub category: TokenCategory,
 }
 
 fn get_sequence(s: &str) -> Option<&'static str> {
@@ -26,6 +27,53 @@ fn get_sequence(s: &str) -> Option<&'static str> {
         }
     }
     return None;
+}
+
+fn find_first_token(s: &str) -> (TokenCategory, usize) {
+    match get_sequence(s) {
+        Some(seq) => {
+            return (TokenCategory::Sequence, seq.len());
+        }
+        None => {}
+    };
+    let first = s.chars().nth(0).expect("Empty token!");
+    let length = s.len();
+    if is_alphanumeric(first) {
+        let len = match s.find(|c: char| !is_alphanumeric(c)) {
+            Some(n) => n,
+            None => length,
+        };
+        return (TokenCategory::Alphanumeric, len);
+    }
+    if is_symbol(first) {
+        return (TokenCategory::Symbol, 1);
+    }
+    let category = match first {
+        ' ' => TokenCategory::Whitespace,
+        '\n' => TokenCategory::Whitespace,
+        '\t' => TokenCategory::Whitespace,
+        '\'' => TokenCategory::StringLiteral,
+        '\"' => TokenCategory::StringLiteral,
+        _ => panic!(),
+    };
+    let length = match category {
+        TokenCategory::Alphanumeric => match s.find(|c: char| !is_alphanumeric(c)) {
+            Some(n) => n,
+            None => length,
+        },
+        TokenCategory::Whitespace => match s.find(|c: char| c != first) {
+            Some(n) => n,
+            None => length,
+        },
+        TokenCategory::StringLiteral => {
+            let close = s.match_indices(first).nth(1).unwrap().0;
+            close + 2 * "'".len() - 1
+        }
+        TokenCategory::Symbol => 1,
+        _ => panic!(),
+    };
+
+    return (category, length);
 }
 
 fn is_alphanumeric(c: char) -> bool {
@@ -45,33 +93,9 @@ fn get_line(string: &str) -> &str {
     };
 }
 
-impl TokenType {
-    pub fn from(s: &str) -> TokenType {
-        let sequence = get_sequence(s);
-        match sequence {
-            Some(sequence) => {
-                return TokenType::Sequence(sequence);
-            }
-            None => {}
-        };
-        let c = s
-            .chars()
-            .nth(0)
-            .expect("Cannot determine type when index 0 is not accessible");
-        if is_alphanumeric(c) {
-            return TokenType::Alphanumeric;
-        }
-        if is_symbol(c) {
-            return TokenType::Symbol;
-        }
-        return match c {
-            ' ' => TokenType::Whitespace(' '),
-            '\n' => TokenType::Whitespace('\n'),
-            '\t' => TokenType::Whitespace('\t'),
-            '\'' => TokenType::Quote("\'"),
-            '\"' => TokenType::Quote("\""),
-            _ => panic!(),
-        };
+impl TokenCategory {
+    pub fn from(s: &str) -> TokenCategory {
+        find_first_token(s).0
     }
 }
 
@@ -104,6 +128,7 @@ impl<'a> Token<'a> {
             index: 0,
             row: 0,
             col: 0,
+            category: TokenCategory::from(string),
         };
         token.assertions();
         return token;
@@ -159,6 +184,7 @@ impl<'a> Token<'a> {
             line_start: self.line_start,
             row: self.row,
             col: self.col,
+            category: self.category,
         };
         a.assertions();
 
@@ -181,28 +207,11 @@ impl<'a> Token<'a> {
             line_start: line_start,
             row: row,
             col: col,
+            category: TokenCategory::from(b),
         };
         b.assertions();
 
         return (a, Some(b));
-    }
-
-    /// Extracts the next token pair
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let token = tokens::Token::from("ab");
-    /// match token.get_type() {
-    ///     tokens::TokenType::Alphanumeric => {println!("It's Alphanumeric!");},
-    ///     tokens::TokenType::Symbol => {println!("It's Symbol!");},
-    ///     _ => {println!("It's something else!");},
-    /// };
-
-    /// ```
-    pub fn get_type(self: &Token<'a>) -> TokenType {
-        self.assertions();
-        return TokenType::from(self.string);
     }
 
     /// Extracts the next token pair
@@ -219,25 +228,7 @@ impl<'a> Token<'a> {
     pub fn next_pair(self: Token<'a>) -> (Token<'a>, Option<Token<'a>>) {
         self.assertions();
 
-        let offset = match self.get_type() {
-            TokenType::Sequence(s) => s.len(),
-            TokenType::Alphanumeric => match self.string.find(|c: char| !is_alphanumeric(c)) {
-                Some(n) => n,
-                None => self.string.len(),
-            },
-            TokenType::Whitespace(w) => match self.string.find(|c: char| w != c) {
-                Some(n) => n,
-                None => self.string.len(),
-            },
-            TokenType::Comment(_) => self.get_line().len(),
-            TokenType::Quote(q) => {
-                assert!(q.len() == 1);
-                let s = self.string.get(q.len()..).expect("Nothing after quote!");
-                let end = s.find(q).expect("Unterminated quote!");
-                end + 2 * q.len()
-            }
-            TokenType::Symbol => 1,
-        };
+        let offset = find_first_token(self.string).1;
         return self.split_at(offset);
     }
 
@@ -280,8 +271,8 @@ impl<'a> Token<'a> {
         return self
             .get_tokens_including_whitespace()
             .into_iter()
-            .filter(|t| match t.get_type() {
-                TokenType::Whitespace(_) => false,
+            .filter(|t| match t.category {
+                TokenCategory::Whitespace => false,
                 _ => true,
             })
             .collect();
