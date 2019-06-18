@@ -241,7 +241,18 @@ impl<'a> Token<'a> {
         return self.split_at(offset);
     }
 
-    pub fn get_tokens(self: Token<'a>) -> Vec<Token<'a>> {
+    /// Splits an initial token into a vector of tokens, including whitespace
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let initial = tokens::Token::from("ab;");
+    /// let tokens = initial.get_tokens_including_whitespace();
+    /// for token in tokens {
+    ///     print!("{}", token.string);
+    /// }
+    /// ```
+    pub fn get_tokens_including_whitespace(self: Token<'a>) -> Vec<Token<'a>> {
         let (token, remainder) = self.next_pair();
         return match remainder {
             Some(remainder) => {
@@ -254,9 +265,31 @@ impl<'a> Token<'a> {
         };
     }
 
+    /// Splits an initial token into a vector of tokens, including whitespace
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let initial = tokens::Token::from("ab;");
+    /// let tokens = initial.get_tokens();
+    /// for token in tokens {
+    ///     println!("{}", token.string);
+    /// }
+    /// ```
+    pub fn get_tokens(self: Token<'a>) -> Vec<Token<'a>> {
+        return self
+            .get_tokens_including_whitespace()
+            .into_iter()
+            .filter(|t| match t.get_type() {
+                TokenType::Whitespace(_) => false,
+                _ => true,
+            })
+            .collect();
+    }
+
     pub fn get_strings_including_whitespace(self: Token<'a>) -> Vec<&'a str> {
         return self
-            .get_tokens()
+            .get_tokens_including_whitespace()
             .into_iter()
             .map(|t: Token| t.string)
             .collect();
@@ -264,9 +297,9 @@ impl<'a> Token<'a> {
 
     pub fn get_strings(self: Token<'a>) -> Vec<&'a str> {
         return self
-            .get_strings_including_whitespace()
+            .get_tokens()
             .into_iter()
-            .filter(|s| *s != " ")
+            .map(|t: Token| t.string)
             .collect();
     }
 }
@@ -348,7 +381,6 @@ mod tests {
                 "bundle",
                 "agent",
                 "main",
-                "\n",
                 "{",
                 "reports",
                 ":",
@@ -357,7 +389,6 @@ mod tests {
                 "'Hello, world'",
                 ";",
                 "}",
-                "\n"
             ]
         );
     }
