@@ -248,11 +248,11 @@ impl<'a> Token<'a> {
         let (token, remainder) = self.next_pair();
         return match remainder {
             Some(remainder) => {
-                let mut a = vec![token];
-                let b = remainder.get_tokens();
-                a.extend(b);
-                a
+                let a = vec![token];
+                let b = remainder.get_tokens_including_whitespace();
+                a.into_iter().chain(b.into_iter()).collect()
             }
+
             None => vec![token],
         };
     }
